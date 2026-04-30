@@ -1,0 +1,15 @@
+dotenv == 0.9.9
+numpy == 2.4.4
+scipy == 1.17.1
+scipy-stubs == 1.17.1.4
+matplotlib == 3.10.9
+python_dotenv == 1.2.2
+pyvjoy == 1.0.1
+ac-stubs == 0.4.2
+
+torch == 2.11.0
+tensorboard == 2.20.0
+gymnasium == 1.2.3
+stable-baselines3 == 2.8.0
+tqdm == 4.67.3
+rich == 15.0.0

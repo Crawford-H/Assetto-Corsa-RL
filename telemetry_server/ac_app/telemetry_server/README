@@ -1,0 +1,4 @@
+The Assetto Corsa python application is a telemetry server that listens for telemetry data from the Assetto Corsa racing simulation game. 
+It receives data such as speed, RPM, gear, and other telemetry information from the game and can be used to display this information in real-time or log it for later analysis.
+
+Assetto Corsa is limited to using python 3.3. 
