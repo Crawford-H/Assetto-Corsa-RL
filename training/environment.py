@@ -11,8 +11,8 @@ class AssettoCorsaEnv(gym.Env):
     def __init__(self, ac: AssettoCorsa):
         super().__init__()
         self.ac: AssettoCorsa = ac
-        self.corridor_n: int = 100
-        self.corridor_step: int = 1
+        self.corridor_n: int = 25
+        self.corridor_step: int = 5
         self.action: tuple[float, ...] = (0.0, 0.0, 0.0)  # steering, throttle, brake
         self.reset_timer: float | None = None
         self.progress: float = 0.0
@@ -28,9 +28,9 @@ class AssettoCorsaEnv(gym.Env):
         throttle = np.clip(self.action[1] + 0.1 * throttle, -1.0, 1.0)
         brake = np.clip(self.action[2] + 0.1 * brake, -1.0, 1.0)
         self.action = steering, throttle, brake
-        self.ac.controller.action(*self.action)
+        self.ac.action(*self.action)
 
-        data = self.ac.telemetry_client.get()
+        data = self.ac.get_data()
 
         if data.lap_invalidated or data.is_collision:
             reward = -0.5
@@ -52,15 +52,17 @@ class AssettoCorsaEnv(gym.Env):
 
         obs = self._get_obs(data)
 
-        return obs, reward, truncated, terminated, {}
+        return obs, reward, terminated, truncated, {}
 
     def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+
         if self.ac.process is None:
             self.ac.start()
         else:
-            self.ac.controller.reset()
+            self.ac.reset()
 
-        data = self.ac.telemetry_client.get()
+        data = self.ac.get_data()
         self.action = 0.0, 0.0, 0.0
         self.reset_timer = None
         self.prev_spline_pos = data.normalized_spline_pos
@@ -84,9 +86,9 @@ class AssettoCorsaEnv(gym.Env):
         point = self.ac.track.get_ai_point(data.position)
         car_pos = np.array(data.position)
         distance = np.linalg.norm(car_pos - point.position)
-        racing_line_multiplier = np.exp(-(distance**2) / 10.0)
+        racing_line_multiplier = np.exp(-(distance**2) / 5.0)
 
-        return 100.0 * diff * racing_line_multiplier - 0.003
+        return 1000.0 * diff * racing_line_multiplier
 
     def _get_obs(self, data: TelemetryData):
         corridor = self.ac.track.relative_corridor(
@@ -95,31 +97,27 @@ class AssettoCorsaEnv(gym.Env):
             self.corridor_n * self.corridor_step,
             self.corridor_step,
         )
-
-        forward = self.ac.track.get_ai_point(data.position).forward
-        track_heading = np.arctan2(forward[2], forward[0])
+        norm_corridor = corridor / (self.corridor_n * self.corridor_step)
 
         return np.concatenate(
             [
                 np.array(
                     [
                         *self.action,
-                        *data.velocity,
-                        *data.angular_velocity,
-                        *data.acc_g,
-                        data.speed_kmh,
-                        data.force_feedback,
-                        data.heading,
-                        track_heading,
+                        *(np.array(data.velocity) / (5.0, 2.0, 80.0)),
+                        *(np.array(data.angular_velocity) / 2.0),
+                        *(np.array(data.acc_g) / 4.0),
+                        data.speed_kmh / 280.0,
+                        data.force_feedback / 3.0,
                     ],
                     dtype=np.float32,
                 ),
-                corridor.flatten().astype(np.float32),
+                norm_corridor.flatten().astype(np.float32),
             ]
         )
 
 
 def make_obs_space_flat(corridor_size):
     return spaces.Box(
-        low=-np.inf, high=np.inf, shape=(16 + corridor_size * 2 * 3,), dtype=np.float32
+        low=-np.inf, high=np.inf, shape=(14 + corridor_size * 2 * 3,), dtype=np.float32
     )

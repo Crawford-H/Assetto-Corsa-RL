@@ -1,6 +1,10 @@
-.venv/
+.venv*/
 __pycache__/
 out/
+build/
+vcpkg_installed/
 *.pt
 *.zip
 *.log
+pyrightconfig.json
+compile_commands.json

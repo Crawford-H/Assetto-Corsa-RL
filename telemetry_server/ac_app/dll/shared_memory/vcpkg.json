@@ -1,0 +1,7 @@
+{
+  "name": "ac-shared-memory-proxy",
+  "version": "0.1.0",
+  "dependencies": [
+    "minhook"
+  ]
+}

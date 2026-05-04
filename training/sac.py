@@ -1,4 +1,5 @@
 import functools
+import argparse
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import EvalCallback
@@ -14,6 +15,8 @@ from training.environment import AssettoCorsaEnv
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train a SAC agent on Assetto Corsa")
+
     car = Car()
     track = Track("ks_red_bull_ring", "layout_gp")
     ac = AssettoCorsa(car, track)
@@ -21,7 +24,6 @@ if __name__ == "__main__":
     partial = functools.partial(AssettoCorsaEnv, ac)
     env = DummyVecEnv([partial])
     env = VecMonitor(env)
-    env = VecNormalize(env, norm_reward=False)
 
     eval_callback = EvalCallback(
         env,

@@ -1,12 +1,16 @@
 import atexit
 import contextlib
 import subprocess
+import time
+import win32gui
+import win32process
 
 from assetto_corsa.car import Car
 from assetto_corsa.controller import Controller
 from assetto_corsa.telemetry_client import TelemetryClient
 from assetto_corsa.track import Track
 from config import config
+from telemetry_server import TelemetryData
 
 
 class AssettoCorsa:
@@ -26,30 +30,60 @@ class AssettoCorsa:
         self.ip: str = ip
         self.resolution: tuple[int, int] = resolution
 
-        self.controller: Controller = Controller(self.id)
-        self.telemetry_client: TelemetryClient = TelemetryClient(self.port, self.ip)
+        self.controller: Controller | None = None
+        self.telemetry_client: TelemetryClient | None = None
         self.process: subprocess.Popen[bytes] | None = None
+        self.hwnd: int | None = None
+
+    def action(self, steering: float, throttle: float, brake: float) -> None:
+        if self.controller is None:
+            raise RuntimeError("action called before Assetto Corsa was started")
+        self.controller.action(steering, throttle, brake)
+
+    def get_data(self) -> TelemetryData:
+        if self.telemetry_client is None:
+            raise RuntimeError("get_data called before Assetto Corsa was started")
+        return self.telemetry_client.get()
 
     def start(self):
         if self.process is not None:
             raise RuntimeError("Assetto Corsa is already running.")
 
+        time.sleep(5 * self.id)
+
         self._load_configs()
+
+        self.telemetry_client = TelemetryClient(self.port, self.ip)
+        self.controller = Controller(self.id)
+
+        print(
+            f"Starting AC - Controller Id {self.id + 1}, Port: {self.port}, Host: {self.ip}"
+        )
 
         with contextlib.chdir(config.AC_PATH):
             self.process = subprocess.Popen(["acs.exe"])
+        self.hwnd = find_window_by_pid(self.process.pid)
 
-        self.telemetry_client.start()
+        _ = self.telemetry_client.get()  # wait for the first data to be received
+        time.sleep(1)
+        self.reset()
 
         _ = atexit.register(self.stop)
 
     def stop(self):
-        if self.process is None:
+        if self.process is None or self.telemetry_client is None:
             raise RuntimeError("Assetto Corsa is not running.")
 
         self.telemetry_client.stop()
 
         self.process.terminate()
+
+    def reset(self):
+        if self.controller is None:
+            raise RuntimeError("Start has not been called")
+
+        self.controller.reset()
+        self.controller.shift_up()
 
     def _load_configs(self):
         # Telemetry server config
@@ -62,7 +96,9 @@ class AssettoCorsa:
             data_sender_template = f.read()
 
         with open(data_path, "w", encoding="utf-8") as f:
-            _ = f.write(data_sender_template.format(port=self.port, ip=self.ip))
+            _ = f.write(
+                data_sender_template.format(port=self.port, ip=self.ip, id=self.id)
+            )
 
         # Race config
         race_template_path = config.BASE_PATH + "assetto_corsa/configs/race.ini"
@@ -103,11 +139,27 @@ class AssettoCorsa:
         with open(controller_template_path, "r", encoding="utf-8") as f:
             controller_template = f.read()
         with open(controller_path, "w", encoding="utf-8") as f:
-            controller = "".join(
-                [f"CON{i} = VJoyDevice\n" for i in range(self.controller.id + 1)]
-            )
-            _ = f.write(
-                controller_template.format(
-                    controllers=controller, joy=self.controller.id
-                )
-            )
+            controller = "".join([f"CON{i} = VJoyDevice\n" for i in range(self.id + 1)])
+            _ = f.write(controller_template.format(controllers=controller, joy=self.id))
+
+
+def find_window_by_pid(pid, timeout=10.0):
+    hwnds = []
+
+    def callback(hwnd, _):
+        _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
+        if window_pid == pid and win32gui.IsWindowVisible(hwnd):
+            hwnds.append(hwnd)
+
+    start = time.time()
+
+    while time.time() - start < timeout:
+        hwnds.clear()
+        win32gui.EnumWindows(callback, None)
+
+        if hwnds:
+            return hwnds[0]  # usually only one main window
+
+        time.sleep(0.2)
+
+    raise RuntimeError("Window not found for PID")

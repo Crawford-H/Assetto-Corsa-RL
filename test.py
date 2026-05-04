@@ -1,3 +1,4 @@
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 import keyboard
@@ -70,25 +71,40 @@ class RelativeCorridorViewer:
         self.fig.canvas.flush_events()
 
 
-def input(ac: AssettoCorsa):
+def input(ac: AssettoCorsa, ac_2: AssettoCorsa):
     if keyboard.is_pressed("esc"):
         exit()
 
+    if keyboard.is_pressed("w"):
+        ac.action(0.0, 1.0, 0.0)
+    else:
+        ac.action(0.0, 0.0, 0.0)
+
+    if ac_2.controller is not None:
+        if keyboard.is_pressed("i"):
+            ac_2.action(0.0, 1.0, 0.0)
+        else:
+            ac_2.action(0.0, 0.0, 0.0)
+
+    if keyboard.is_pressed("s") and ac_2.controller is None:
+        ac_2.start()
+
     if keyboard.is_pressed("r"):
-        ac.controller.reset()
+        ac.reset()
 
 
 if __name__ == "__main__":
     track = Track("ks_red_bull_ring", "layout_gp")
     car = Car()
-    ac = AssettoCorsa(car, track)
+    ac = AssettoCorsa(car, track, id=0, port=8080)
+    ac_2 = AssettoCorsa(car, track, id=1, port=8081)
     ac.start()
 
     corridor_viewer = RelativeCorridorViewer()
 
     while True:
-        input(ac)
-        data = ac.telemetry_client.get()
+        input(ac, ac_2)
+        data = ac.get_data()
         corridor_viewer.update(
             np.array(
                 ac.track.relative_corridor(
