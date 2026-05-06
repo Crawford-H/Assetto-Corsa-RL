@@ -3,9 +3,11 @@ import pyvjoy
 
 
 class Controller:
-    def __init__(self, id: int):
+    def __init__(self):
+        id, devices = get_device()
         self.id: int = id
-        self.device: pyvjoy.VJoyDevice = pyvjoy.VJoyDevice(id + 1)
+        self.n_devices: int = devices
+        self.device: pyvjoy.VJoyDevice = pyvjoy.VJoyDevice(id)
 
     def reset(self):
         self.device.set_button(3, True)
@@ -36,3 +38,22 @@ class Controller:
 
         if brake is not None:
             self.device.set_axis(pyvjoy.HID_USAGE_Z, int(brake * 32767))
+
+
+def get_device() -> tuple[int, int]:
+    id = None
+    total_devices = 0
+
+    for i in range(1, 17):
+        match pyvjoy._sdk.GetVJDStatus(i):
+            case pyvjoy.VJD_STAT_FREE:
+                if id is None:
+                    id = i
+                total_devices += 1
+            case pyvjoy.VJD_STAT_BUSY:
+                total_devices += 1
+
+    if id is None:
+        raise RuntimeError("No VJoy Devices available")
+
+    return id, total_devices

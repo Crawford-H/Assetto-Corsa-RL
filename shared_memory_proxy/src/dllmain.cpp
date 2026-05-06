@@ -44,14 +44,9 @@ HANDLE WINAPI hkCreateFileMappingA(HANDLE hFile,
   if (lpName && strstr(lpName, "acpmf")) {
     char newName[128];
     sprintf(newName, "%s_%d", lpName, GetInstanceId());
-    // std::string message = "Original name: " + std::string(lpName) +
-    //                       " New name: " + std::string(newName);
-    // MessageBoxA(nullptr, message.c_str(), "CreateFileMappingA", MB_OK);
     return fpCreateFileMappingA(hFile, lpAttributes, flProtect, dwMaxSizeHigh,
                                 dwMaxSizeLow, newName);
   }
-
-  // MessageBoxA(nullptr, lpName, "CreateFileMappingA", MB_OK);
   return fpCreateFileMappingA(hFile, lpAttributes, flProtect, dwMaxSizeHigh,
                               dwMaxSizeLow, lpName);
 }
@@ -62,13 +57,8 @@ HANDLE WINAPI hkOpenFileMappingA(DWORD dwDesiredAccess, BOOL bInheritHandle,
   if (lpName && strstr(lpName, "acpmf")) {
     char newName[128];
     sprintf(newName, "%s_%d", lpName, GetInstanceId());
-    // std::string message = "Original name: " + std::string(lpName) +
-    //                       " New name: " + std::string(newName);
-    // MessageBoxA(nullptr, message.c_str(), "OpenFileMappingA", MB_OK);
     return fpOpenFileMappingA(dwDesiredAccess, bInheritHandle, newName);
   }
-
-  // MessageBoxA(nullptr, lpName, "OpenFileMappingA", MB_OK);
   return fpOpenFileMappingA(dwDesiredAccess, bInheritHandle, lpName);
 }
 
@@ -79,16 +69,8 @@ HANDLE WINAPI hkCreateFileMappingW(HANDLE hFile,
   if (lpName && wcsstr(lpName, L"acpmf")) {
     wchar_t newName[128];
     swprintf(newName, 128, L"%ls_%d", lpName, GetInstanceId());
-
-    // wchar_t message[512];
-    // swprintf(message, 512, L"Original name: %ls\nNew name: %ls", lpName,
-    //          newName);
-    // MessageBoxW(nullptr, message, L"CreateFileMappingW", MB_OK);
-
     return fpCreateFileMappingW(hFile, lpAttributes, flProtect, dwMaxSizeHigh,
-                                dwMaxSizeLow,
-                                newName // change to newName when redirecting
-    );
+                                dwMaxSizeLow, newName);
   }
 
   return fpCreateFileMappingW(hFile, lpAttributes, flProtect, dwMaxSizeHigh,
@@ -100,15 +82,7 @@ HANDLE WINAPI hkOpenFileMappingW(DWORD dwDesiredAccess, BOOL bInheritHandle,
   if (lpName && wcsstr(lpName, L"acpmf")) {
     wchar_t newName[128];
     swprintf(newName, 128, L"%ls_%d", lpName, GetInstanceId());
-
-    // wchar_t message[512];
-    // swprintf(message, 512, L"Original name: %ls\nNew name: %ls", lpName,
-    //          newName);
-    // MessageBoxW(nullptr, message, L"OpenFileMappingW", MB_OK);
-
-    return fpOpenFileMappingW(dwDesiredAccess, bInheritHandle,
-                              newName // change to newName when redirecting
-    );
+    return fpOpenFileMappingW(dwDesiredAccess, bInheritHandle, newName);
   }
 
   return fpOpenFileMappingW(dwDesiredAccess, bInheritHandle, lpName);

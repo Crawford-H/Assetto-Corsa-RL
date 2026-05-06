@@ -6,6 +6,29 @@ import keyboard
 from assetto_corsa import AssettoCorsa
 from assetto_corsa import Car
 from assetto_corsa import Track
+from assetto_corsa.track import AiPoint
+
+
+def is_off_track(
+    racing_line: AiPoint, car_position: tuple[float, float, float], margin: float = 0.0
+) -> bool:
+    p = np.asarray(car_position, dtype=np.float32)
+    center = np.asarray(racing_line.position)
+    normal = np.asarray(racing_line.normal)
+    forward = np.asarray(racing_line.forward)
+
+    left = -racing_line.left - margin
+    right = racing_line.right + margin
+
+    right_vec = np.cross(forward, normal)
+    offset = p - center
+    lateral = np.dot(offset, right_vec)
+
+    print(
+        f"Off track={left > lateral or right < lateral}, Lateral={lateral}, Left={left}, Right={right}"
+    )
+
+    return left > lateral > right
 
 
 def plot_world_corridor(corridor: np.ndarray) -> None:
@@ -75,19 +98,19 @@ def input(ac: AssettoCorsa, ac_2: AssettoCorsa):
     if keyboard.is_pressed("esc"):
         exit()
 
+    steer = 0.0
+    throttle = 0.0
+    brake = 0.0
+
+    if keyboard.is_pressed("a"):
+        steer = -0.5
+    if keyboard.is_pressed("d"):
+        steer = 0.5
     if keyboard.is_pressed("w"):
-        ac.action(0.0, 1.0, 0.0)
-    else:
-        ac.action(0.0, 0.0, 0.0)
-
-    if ac_2.controller is not None:
-        if keyboard.is_pressed("i"):
-            ac_2.action(0.0, 1.0, 0.0)
-        else:
-            ac_2.action(0.0, 0.0, 0.0)
-
-    if keyboard.is_pressed("s") and ac_2.controller is None:
-        ac_2.start()
+        throttle = 1.0
+    if keyboard.is_pressed("s"):
+        brake = 1.0
+    ac.action(steer, throttle, brake)
 
     if keyboard.is_pressed("r"):
         ac.reset()
@@ -105,6 +128,8 @@ if __name__ == "__main__":
     while True:
         input(ac, ac_2)
         data = ac.get_data()
+        point = ac.track.get_ai_point(data.position)
+        is_off_track(point, data.position)
         corridor_viewer.update(
             np.array(
                 ac.track.relative_corridor(

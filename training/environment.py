@@ -4,6 +4,7 @@ from gymnasium import spaces
 import numpy as np
 
 from assetto_corsa import AssettoCorsa
+from assetto_corsa.track import AiPoint
 from telemetry_server.TelemetryData import TelemetryData
 
 
@@ -11,8 +12,8 @@ class AssettoCorsaEnv(gym.Env):
     def __init__(self, ac: AssettoCorsa):
         super().__init__()
         self.ac: AssettoCorsa = ac
-        self.corridor_n: int = 25
-        self.corridor_step: int = 5
+        self.corridor_n: int = 100
+        self.corridor_step: int = 1
         self.action: tuple[float, ...] = (0.0, 0.0, 0.0)  # steering, throttle, brake
         self.reset_timer: float | None = None
         self.progress: float = 0.0
@@ -31,15 +32,17 @@ class AssettoCorsaEnv(gym.Env):
         self.ac.action(*self.action)
 
         data = self.ac.get_data()
+        racing_line = self.ac.track.get_ai_point(data.position)
+        off_track = is_off_track(racing_line, data.position, margin=1.0)
 
-        if data.lap_invalidated or data.is_collision:
-            reward = -0.5
+        if off_track or data.is_collision or data.lap_invalidated:
+            reward = -10
             truncated, terminated = False, True
         elif data.lap_count >= 1:
-            reward = 1.0
+            reward = 10
             truncated, terminated = False, True
         elif self.reset_timer is not None and time.time() - self.reset_timer > 5.0:
-            reward = -0.5
+            reward = -10
             truncated, terminated = True, False
         else:
             reward = self._calc_reward(data)
@@ -54,7 +57,7 @@ class AssettoCorsaEnv(gym.Env):
 
         return obs, reward, terminated, truncated, {}
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=None):  # pyright: ignore[reportExplicitAny]
         super().reset(seed=seed)
 
         if self.ac.process is None:
@@ -86,7 +89,7 @@ class AssettoCorsaEnv(gym.Env):
         point = self.ac.track.get_ai_point(data.position)
         car_pos = np.array(data.position)
         distance = np.linalg.norm(car_pos - point.position)
-        racing_line_multiplier = np.exp(-(distance**2) / 5.0)
+        racing_line_multiplier = np.exp(-(distance**2) / 20.0)
 
         return 1000.0 * diff * racing_line_multiplier
 
@@ -115,6 +118,24 @@ class AssettoCorsaEnv(gym.Env):
                 norm_corridor.flatten().astype(np.float32),
             ]
         )
+
+
+def is_off_track(
+    racing_line: AiPoint, car_position: tuple[float, float, float], margin: float = 0.0
+) -> bool:
+    p = np.asarray(car_position, dtype=np.float32)
+    center = np.asarray(racing_line.position)
+    normal = np.asarray(racing_line.normal)
+    forward = np.asarray(racing_line.forward)
+
+    left = -racing_line.left - margin
+    right = racing_line.right + margin
+
+    right_vec = np.cross(forward, normal)
+    offset = p - center
+    lateral = np.dot(offset, right_vec)
+
+    return left > lateral or right < lateral
 
 
 def make_obs_space_flat(corridor_size):

@@ -2,8 +2,6 @@ import atexit
 import contextlib
 import subprocess
 import time
-import win32gui
-import win32process
 
 from assetto_corsa.car import Car
 from assetto_corsa.controller import Controller
@@ -33,7 +31,6 @@ class AssettoCorsa:
         self.controller: Controller | None = None
         self.telemetry_client: TelemetryClient | None = None
         self.process: subprocess.Popen[bytes] | None = None
-        self.hwnd: int | None = None
 
     def action(self, steering: float, throttle: float, brake: float) -> None:
         if self.controller is None:
@@ -46,29 +43,30 @@ class AssettoCorsa:
         return self.telemetry_client.get()
 
     def start(self):
+        print(f"Starting AC[{self.id}]")
         if self.process is not None:
             raise RuntimeError("Assetto Corsa is already running.")
 
-        time.sleep(5 * self.id)
-
-        self._load_configs()
+        time.sleep(8 * self.id)
 
         self.telemetry_client = TelemetryClient(self.port, self.ip)
-        self.controller = Controller(self.id)
+        self.controller = Controller()
+        self._load_configs()
 
         print(
-            f"Starting AC - Controller Id {self.id + 1}, Port: {self.port}, Host: {self.ip}"
+            f"Starting AC[{self.id}] - Controller Id {self.controller.id}, Port: {self.port}, Host: {self.ip}"
         )
 
         with contextlib.chdir(config.AC_PATH):
             self.process = subprocess.Popen(["acs.exe"])
-        self.hwnd = find_window_by_pid(self.process.pid)
 
         _ = self.telemetry_client.get()  # wait for the first data to be received
         time.sleep(1)
         self.reset()
 
         _ = atexit.register(self.stop)
+
+        print(f"AC[{self.id}] successfully started")
 
     def stop(self):
         if self.process is None or self.telemetry_client is None:
@@ -131,6 +129,8 @@ class AssettoCorsa:
                 )
             )
 
+        if self.controller is None:
+            raise ValueError("Controller has not been instantiated")
         # Controlller config
         controller_template_path = (
             config.BASE_PATH + "assetto_corsa/configs/controls.ini"
@@ -139,8 +139,14 @@ class AssettoCorsa:
         with open(controller_template_path, "r", encoding="utf-8") as f:
             controller_template = f.read()
         with open(controller_path, "w", encoding="utf-8") as f:
-            controller = "".join([f"CON{i} = VJoyDevice\n" for i in range(self.id + 1)])
-            _ = f.write(controller_template.format(controllers=controller, joy=self.id))
+            controller = "".join(
+                [f"CON{i} = VJoyDevice\n" for i in range(self.controller.n_devices)]
+            )
+            _ = f.write(
+                controller_template.format(
+                    controllers=controller, joy=self.controller.id
+                )
+            )
 
 
 def find_window_by_pid(pid, timeout=10.0):
