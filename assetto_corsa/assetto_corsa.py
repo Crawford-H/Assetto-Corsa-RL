@@ -140,11 +140,11 @@ class AssettoCorsa:
             controller_template = f.read()
         with open(controller_path, "w", encoding="utf-8") as f:
             controller = "".join(
-                [f"CON{i} = VJoyDevice\n" for i in range(self.controller.n_devices)]
+                [f"CON{i} = VJoyDevice\n" for i in range(self.controller.id)]
             )
             _ = f.write(
                 controller_template.format(
-                    controllers=controller, joy=self.controller.id
+                    controllers=controller, joy=self.controller.id - 1
                 )
             )
 

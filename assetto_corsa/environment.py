@@ -2,22 +2,27 @@ import time
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+from numpy.typing import NDArray
 
-from assetto_corsa import AssettoCorsa
-from assetto_corsa.track import AiPoint
+from .assetto_corsa import AssettoCorsa
+from .track import AiPoint
 from telemetry_server.TelemetryData import TelemetryData
 
+ObsType = NDArray[np.float32]
+ActType = NDArray[np.float32]
 
-class AssettoCorsaEnv(gym.Env):
-    def __init__(self, ac: AssettoCorsa):
+
+class AssettoCorsaEnv(gym.Env[ObsType, ActType]):
+    def __init__(self, ac: AssettoCorsa, corridor_n: int = 100, corridor_step: int = 1):
         super().__init__()
         self.ac: AssettoCorsa = ac
-        self.corridor_n: int = 100
-        self.corridor_step: int = 1
+        self.corridor_n: int = corridor_n
+        self.corridor_step: int = corridor_step
         self.action: tuple[float, ...] = (0.0, 0.0, 0.0)  # steering, throttle, brake
         self.reset_timer: float | None = None
         self.progress: float = 0.0
         self.prev_spline_pos: float = 0.0
+        self.track_length: int = int(self.ac.track.info["length"])
 
         self.observation_space = make_obs_space_flat(self.corridor_n)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(3,), dtype=np.float32)
@@ -33,7 +38,7 @@ class AssettoCorsaEnv(gym.Env):
 
         data = self.ac.get_data()
         racing_line = self.ac.track.get_ai_point(data.position)
-        off_track = is_off_track(racing_line, data.position, margin=1.0)
+        off_track = is_off_track(racing_line, data.position, margin=1.5)
 
         if off_track or data.is_collision or data.lap_invalidated:
             reward = -10
@@ -91,7 +96,7 @@ class AssettoCorsaEnv(gym.Env):
         distance = np.linalg.norm(car_pos - point.position)
         racing_line_multiplier = np.exp(-(distance**2) / 20.0)
 
-        return 1000.0 * diff * racing_line_multiplier
+        return (self.track_length / 2) * diff * racing_line_multiplier
 
     def _get_obs(self, data: TelemetryData):
         corridor = self.ac.track.relative_corridor(

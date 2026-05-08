@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import struct
+from typing import Any
 import numpy as np
 from scipy.spatial import KDTree
 
@@ -36,6 +38,12 @@ class Track:
     def __init__(self, name: str, layout: str = ""):
         path = Path(config.AC_PATH) / "content" / "tracks" / name
 
+        info_path = (
+            path / "ui" / layout / "ui_track.json"
+            if layout != ""
+            else path / "ui" / "ui_track.json"
+        )
+
         if not path.exists():
             raise FileNotFoundError(
                 f"Track {name} not found in Asseetto Corsa installation."
@@ -49,6 +57,9 @@ class Track:
         if layout != "" and not (path / layout).exists():
             raise FileNotFoundError(f"Layout {layout} not found for track {name}.")
 
+        with open(info_path, "r", encoding="utf-8") as f:
+            self.info: dict[str, str] = json.load(f, strict=False)
+        print(self.info)
         self.path: Path = path
         self.layout: str = layout
         self._ai_points: list[AiPoint] = self._parse_ai_file()

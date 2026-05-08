@@ -6,12 +6,11 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.vec_env import (
     DummyVecEnv,
     VecMonitor,
-    VecNormalize,
 )
 
 from config import config
 from assetto_corsa import AssettoCorsa, Car, Track
-from training.environment import AssettoCorsaEnv
+from assetto_corsa import AssettoCorsaEnv
 
 
 if __name__ == "__main__":
@@ -21,15 +20,15 @@ if __name__ == "__main__":
     track = Track("ks_red_bull_ring", "layout_gp")
     ac = AssettoCorsa(car, track)
 
-    partial = functools.partial(AssettoCorsaEnv, ac)
+    partial = functools.partial(AssettoCorsaEnv, ac, corridor_n=25, corridor_step=5)
     env = DummyVecEnv([partial])
     env = VecMonitor(env)
 
     eval_callback = EvalCallback(
         env,
         eval_freq=10000,
-        best_model_save_path=config.OUT_PATH + "SAC/best_model",
-        log_path=config.OUT_PATH + "SAC/eval_logs",
+        best_model_save_path=config.OUT_PATH + "SAC/",
+        log_path=config.OUT_PATH + "SAC/",
         n_eval_episodes=1,
     )
 
