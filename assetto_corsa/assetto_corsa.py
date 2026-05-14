@@ -43,11 +43,8 @@ class AssettoCorsa:
         return self.telemetry_client.get()
 
     def start(self):
-        print(f"Starting AC[{self.id}]")
         if self.process is not None:
             raise RuntimeError("Assetto Corsa is already running.")
-
-        time.sleep(8 * self.id)
 
         self.telemetry_client = TelemetryClient(self.port, self.ip)
         self.controller = Controller()
@@ -61,8 +58,6 @@ class AssettoCorsa:
             self.process = subprocess.Popen(["acs.exe"])
 
         _ = self.telemetry_client.get()  # wait for the first data to be received
-        time.sleep(1)
-        self.reset()
 
         _ = atexit.register(self.stop)
 
@@ -149,23 +144,23 @@ class AssettoCorsa:
             )
 
 
-def find_window_by_pid(pid, timeout=10.0):
-    hwnds = []
-
-    def callback(hwnd, _):
-        _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
-        if window_pid == pid and win32gui.IsWindowVisible(hwnd):
-            hwnds.append(hwnd)
-
-    start = time.time()
-
-    while time.time() - start < timeout:
-        hwnds.clear()
-        win32gui.EnumWindows(callback, None)
-
-        if hwnds:
-            return hwnds[0]  # usually only one main window
-
-        time.sleep(0.2)
-
-    raise RuntimeError("Window not found for PID")
+# def find_window_by_pid(pid, timeout=10.0):
+#     hwnds = []
+#
+#     def callback(hwnd, _):
+#         _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
+#         if window_pid == pid and win32gui.IsWindowVisible(hwnd):
+#             hwnds.append(hwnd)
+#
+#     start = time.time()
+#
+#     while time.time() - start < timeout:
+#         hwnds.clear()
+#         win32gui.EnumWindows(callback, None)
+#
+#         if hwnds:
+#             return hwnds[0]  # usually only one main window
+#
+#         time.sleep(0.2)
+#
+#     raise RuntimeError("Window not found for PID")

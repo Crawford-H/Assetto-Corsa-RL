@@ -1,3 +1,4 @@
+from multiprocessing import Manager
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.vec_env import (
@@ -77,9 +78,12 @@ class CorridorFeatureExtractor(BaseFeaturesExtractor):
         return self.final_net(features)
 
 
-def make_env(rank: int, port: int, car: Car, track: Track):
+def make_env(rank: int, port: int, car: Car, track: Track, startup_lock):
     def _init():
-        return AssettoCorsaEnv(AssettoCorsa(car=car, track=track, port=port, id=rank))
+        with startup_lock:
+            ac = AssettoCorsa(car=car, track=track, port=port, id=rank)
+            ac.start()
+        return AssettoCorsaEnv(ac)
 
     return _init
 
@@ -88,13 +92,19 @@ if __name__ == "__main__":
     car = Car()
     tracks = [
         Track("ks_red_bull_ring", "layout_gp"),
-        Track("spa"),
-        Track("imola"),
+        # Track("spa"),
+        # Track("imola"),
     ]
-    n_envs = 6
+    n_envs = 3
+
+    manager = Manager()
+    startup_lock = manager.Lock()
 
     env = SubprocVecEnv(
-        [make_env(i, 10000 + i, car, tracks[i % len(tracks)]) for i in range(n_envs)]
+        [
+            make_env(i, 10000 + i, car, tracks[i % len(tracks)], startup_lock)
+            for i in range(n_envs)
+        ]
     )
     env = VecMonitor(env)
     env = VecFrameStack(env, n_stack=3)
